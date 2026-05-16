@@ -51,6 +51,60 @@ class RawKeyFocusScope extends StatelessWidget {
   }
 }
 
+/// TV 遥控器支持的 Focus Scope
+/// 支持 Android TV 遥控器的方向键和确认键
+class TvRemoteKeyFocusScope extends StatelessWidget {
+  final FocusNode? focusNode;
+  final ValueChanged<bool>? onFocusChange;
+  final InputModel inputModel;
+  final dynamic tvRemoteController; // TvRemoteController
+  final Widget child;
+
+  TvRemoteKeyFocusScope({
+    this.focusNode,
+    this.onFocusChange,
+    required this.inputModel,
+    this.tvRemoteController,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // https://github.com/flutter/flutter/issues/154053
+    final useRawKeyEvents = isLinux && !isWeb;
+    // FIXME: On Windows, `AltGr` will generate `Alt` and `Control` key events,
+    // while `Alt` and `Control` are separated key events for en-US input method.
+    return FocusScope(
+        autofocus: true,
+        child: Focus(
+            autofocus: true,
+            canRequestFocus: true,
+            focusNode: focusNode,
+            onFocusChange: onFocusChange,
+            onKey: useRawKeyEvents
+                ? (FocusNode data, RawKeyEvent event) {
+                    // 先尝试 TV 遥控器处理
+                    if (tvRemoteController?.handleRawKeyEvent(event) ?? false) {
+                      return KeyEventResult.handled;
+                    }
+                    // 否则使用原有的处理
+                    return inputModel.handleRawKeyEvent(event);
+                  }
+                : null,
+            onKeyEvent: useRawKeyEvents
+                ? null
+                : (FocusNode node, KeyEvent event) {
+                    // 先尝试 TV 遥控器处理
+                    if (tvRemoteController?.handleKeyDown(event) ?? false) {
+                      return KeyEventResult.handled;
+                    }
+                    // 否则使用原有的处理
+                    return inputModel.handleKeyEvent(event);
+                  },
+            child: child));
+  }
+}
+
 // For virtual mouse when using the mouse mode on mobile.
 // Special hold-drag mode: one finger holds a button (left/right button), another finger pans.
 // This flag is to override the scale gesture to a pan gesture.
