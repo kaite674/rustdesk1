@@ -85,98 +85,112 @@ class TvRemoteController {
   }
   
   /// 执行一次移动
-  void _executeMove(String direction) {
-    if (ffi.sessionId.isEmpty) return;
+  Future<void> _executeMove(String direction) async {
+    if (ffi.sessionId == null) return;
     
     final effectiveStep = _moveStep * (_effectiveSpeed / 300.0);
     final inputModel = ffi.inputModel;
     
     switch (direction) {
       case 'up':
-        inputModel.touchMove(0, -effectiveStep);
+        await inputModel.moveMouse(0, -effectiveStep);
         break;
       case 'down':
-        inputModel.touchMove(0, effectiveStep);
+        await inputModel.moveMouse(0, effectiveStep);
         break;
       case 'left':
-        inputModel.touchMove(-effectiveStep, 0);
+        await inputModel.moveMouse(-effectiveStep, 0);
         break;
       case 'right':
-        inputModel.touchMove(effectiveStep, 0);
+        await inputModel.moveMouse(effectiveStep, 0);
         break;
     }
   }
   
   /// 处理左键点击
-  void _handleLeftClick() {
-    if (ffi.sessionId.isEmpty) return;
+  Future<void> _handleLeftClick() async {
+    if (ffi.sessionId == null) return;
     final inputModel = ffi.inputModel;
-    inputModel.tap(MouseButtons.left);
+    await inputModel.tap(MouseButtons.left);
   }
   
   /// 处理右键点击
-  void _handleRightClick() {
-    if (ffi.sessionId.isEmpty) return;
+  Future<void> _handleRightClick() async {
+    if (ffi.sessionId == null) return;
     final inputModel = ffi.inputModel;
-    inputModel.tap(MouseButtons.right);
+    await inputModel.tap(MouseButtons.right);
   }
   
-  /// 处理按键按下事件（用于 KeyEvent）
-  bool handleKeyDown(KeyEvent event) {
-    // 方向键映射
-    if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      switch (event.logicalKey) {
-        // 方向键
-        case LogicalKeyboardKey.arrowUp:
-          _startMove('up');
-          return true;
-        case LogicalKeyboardKey.arrowDown:
-          _startMove('down');
-          return true;
-        case LogicalKeyboardKey.arrowLeft:
-          _startMove('left');
-          return true;
-        case LogicalKeyboardKey.arrowRight:
-          _startMove('right');
-          return true;
-        
-        // 确认键 - 左键点击
-        case LogicalKeyboardKey.enter:
-          _handleLeftClick();
-          return true;
-        
-        // 返回键 - 右键点击
-        case LogicalKeyboardKey.escape:
-        case LogicalKeyboardKey.backspace:
-          _handleRightClick();
-          return true;
-        
-        // 空格键也可以作为确认
-        case LogicalKeyboardKey.space:
-          _handleLeftClick();
-          return true;
-      }
+  /// 处理遥控器按键
+  /// 返回 true 如果按键被处理，返回 false 如果需要传递给默认处理
+  Future<bool> handleKey(RawKeyEvent event) async {
+    // 只处理按下事件，忽略释放
+    if (event is! RawKeyDownEvent) return false;
+    
+    final key = event.logicalKey;
+    
+    // 方向键处理
+    if (key == LogicalKeyboardKey.arrowUp) {
+      _startMove('up');
+      return true;
+    } else if (key == LogicalKeyboardKey.arrowDown) {
+      _startMove('down');
+      return true;
+    } else if (key == LogicalKeyboardKey.arrowLeft) {
+      _startMove('left');
+      return true;
+    } else if (key == LogicalKeyboardKey.arrowRight) {
+      _startMove('right');
+      return true;
     }
     
-    // 处理按键释放
-    if (event is KeyUpEvent) {
-      switch (event.logicalKey) {
-        case LogicalKeyboardKey.arrowUp:
-        case LogicalKeyboardKey.arrowDown:
-        case LogicalKeyboardKey.arrowLeft:
-        case LogicalKeyboardKey.arrowRight:
-          _stopMove();
-          return true;
-      }
+    // 停止移动
+    if (_currentDirection != null && 
+        (key == LogicalKeyboardKey.enter || 
+         key == LogicalKeyboardKey.select ||
+         key == LogicalKeyboardKey.escape ||
+         key == LogicalKeyboardKey.back)) {
+      _stopMove();
+    }
+    
+    // Enter/Select - 左键点击
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.select) {
+      await _handleLeftClick();
+      return true;
+    }
+    
+    // Back/Escape - 右键点击
+    if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.back) {
+      await _handleRightClick();
+      return true;
+    }
+    
+    // 快速移动模式切换（使用加号和减号键）
+    if (key == LogicalKeyboardKey.add || key == LogicalKeyboardKey.equal || 
+        key == LogicalKeyboardKey.numpadAdd) {
+      toggleFastMode();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.minus || key == LogicalKeyboardKey.numpadSubtract) {
+      toggleFastMode();
+      return true;
     }
     
     return false;
   }
   
-  /// 处理 RawKeyEvent（用于 RawKeyboard）
-  bool handleRawKeyEvent(RawKeyEvent event) {
-    // 对于 TV 遥控器，我们主要使用 KeyEvent
-    // RawKeyEvent 主要用于物理键盘
-    return false;
+  /// 处理按键释放
+  void handleKeyRelease(RawKeyEvent event) {
+    if (event is! RawKeyUpEvent) return;
+    
+    final key = event.logicalKey;
+    
+    // 方向键释放时停止移动
+    if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight) {
+      _stopMove();
+    }
   }
 }
