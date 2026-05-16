@@ -9,6 +9,7 @@ import 'package:flutter_hbb/mobile/widgets/floating_mouse.dart';
 import 'package:flutter_hbb/mobile/widgets/floating_mouse_widgets.dart';
 import 'package:flutter_hbb/mobile/widgets/gesture_help.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
+import 'package:flutter_hbb/models/tv_remote_controller.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
@@ -74,6 +75,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   final FocusNode _mobileFocusNode = FocusNode();
   final FocusNode _physicalFocusNode = FocusNode();
   var _showEdit = false; // use soft keyboard
+  
+  // TV 遥控器支持
+  TvRemoteController? _tvRemoteController;
 
   InputModel get inputModel => gFFI.inputModel;
   SessionID get sessionId => gFFI.sessionId;
@@ -121,6 +125,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
           isKeyboardVisible: keyboardVisibilityController.isVisible);
     });
     WidgetsBinding.instance.addObserver(this);
+    
+    // 初始化 TV 遥控器控制器
+    _tvRemoteController = TvRemoteController(ffi: gFFI);
   }
 
   @override
@@ -148,6 +155,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     // The inner logic of `on_voice_call_closed` will check if the voice call is active.
     // Only one client is considered here for now.
     gFFI.chatModel.onVoiceCallClosed("End connetion");
+    
+    // 清理 TV 遥控器控制器
+    _tvRemoteController?.dispose();
   }
 
   @override
@@ -449,12 +459,66 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
       // Disable RawKeyFocusScope before the connecting is established.
       // The "Delete" key on the soft keyboard may be grabbed when inputting the password dialog.
       child: gFFI.ffiModel.pi.isSet.isTrue
-          ? RawKeyFocusScope(
+          ? _TvRemoteKeyFocusScope(
               focusNode: _physicalFocusNode,
               inputModel: inputModel,
+              tvRemoteController: _tvRemoteController,
               child: child)
           : child,
     );
+  }
+}
+
+/// TV 遥控器支持的 Focus Scope
+class _TvRemoteKeyFocusScope extends StatelessWidget {
+  final FocusNode? focusNode;
+  final ValueChanged<bool>? onFocusChange;
+  final InputModel inputModel;
+  final TvRemoteController? tvRemoteController;
+  final Widget child;
+
+  const _TvRemoteKeyFocusScope({
+    this.focusNode,
+    this.onFocusChange,
+    required this.inputModel,
+    this.tvRemoteController,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // https://github.com/flutter/flutter/issues/154053
+    final useRawKeyEvents = isLinux && !isWeb;
+    // FIXME: On Windows, `AltGr` will generate `Alt` and `Control` key events,
+    // while `Alt` and `Control` are separated key events for en-US input method.
+    return FocusScope(
+        autofocus: true,
+        child: Focus(
+            autofocus: true,
+            canRequestFocus: true,
+            focusNode: focusNode,
+            onFocusChange: onFocusChange,
+            onKey: useRawKeyEvents
+                ? (FocusNode data, RawKeyEvent event) {
+                    // 先尝试 TV 遥控器处理
+                    if (tvRemoteController?.handleRawKeyEvent(event) ?? false) {
+                      return KeyEventResult.handled;
+                    }
+                    // 否则使用原有的处理
+                    return inputModel.handleRawKeyEvent(event);
+                  }
+                : null,
+            onKeyEvent: useRawKeyEvents
+                ? null
+                : (FocusNode node, KeyEvent event) {
+                    // 先尝试 TV 遥控器处理
+                    if (tvRemoteController?.handleKeyEvent(event) ?? false) {
+                      return KeyEventResult.handled;
+                    }
+                    // 否则使用原有的处理
+                    return inputModel.handleKeyEvent(event);
+                  },
+            child: child));
   }
 
   Widget getBottomAppBar() {

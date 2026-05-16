@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TV 优化主题 -->
+    <style name="TvTheme" parent="LaunchTheme">
+        <!-- TV 应用通常需要更大的文字和控件 -->
+        <item name="android:textSize">18sp</item>
+        <!-- 启用焦点高亮 -->
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+    </style>
+</resources>
