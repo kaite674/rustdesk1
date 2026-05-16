@@ -148,8 +148,7 @@ class TvRemoteController {
     if (_currentDirection != null && 
         (key == LogicalKeyboardKey.enter || 
          key == LogicalKeyboardKey.select ||
-         key == LogicalKeyboardKey.escape ||
-         key == LogicalKeyboardKey.back)) {
+         key == LogicalKeyboardKey.escape)) {
       _stopMove();
     }
     
@@ -159,8 +158,8 @@ class TvRemoteController {
       return true;
     }
     
-    // Back/Escape - 右键点击
-    if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.back) {
+    // Escape - 右键点击
+    if (key == LogicalKeyboardKey.escape) {
       await _handleRightClick();
       return true;
     }
