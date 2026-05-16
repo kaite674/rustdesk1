@@ -1,0 +1,11 @@
+[project]
+sub_id = "e83c64d1"
+name = "rustdesk"
+requires = []
+project_type = ""
+
+[preview]
+preview_enable = "disabled"
+
+[subprojects]
+path = ["."]
