@@ -194,10 +194,10 @@ class TvRemoteController {
   }
   
   /// 处理 RawKeyEvent (供 RawKeyFocusScope 使用)
-  KeyEventResult handleRawKeyEvent(RawKeyEvent event) async {
+  KeyEventResult handleRawKeyEvent(RawKeyEvent event) {
     if (event is RawKeyDownEvent) {
-      final handled = await handleKey(event);
-      return handled ? KeyEventResult.handled : KeyEventResult.ignored;
+      handleKey(event);
+      return KeyEventResult.handled;
     } else if (event is RawKeyUpEvent) {
       handleKeyRelease(event);
       return KeyEventResult.handled;
@@ -206,16 +206,13 @@ class TvRemoteController {
   }
   
   /// 处理 KeyEvent (供 Focus 组件使用)
-  KeyEventResult handleKeyDown(KeyEvent event) async {
+  KeyEventResult handleKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent) {
-      // 将 KeyEvent 转换为 RawKeyEvent
-      final rawEvent = RawKeyDownEvent(
-        physicalKey: event.physicalKey,
-        logicalKey: event.logicalKey,
-        timeStamp: event.timeStamp,
-      );
-      final handled = await handleKey(rawEvent);
-      return handled ? KeyEventResult.handled : KeyEventResult.ignored;
+      handleKey(event);
+      return KeyEventResult.handled;
+    } else if (event is KeyUpEvent) {
+      handleKeyRelease(event);
+      return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }

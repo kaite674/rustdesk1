@@ -95,7 +95,7 @@ class TvRemoteKeyFocusScope extends StatelessWidget {
                 ? null
                 : (FocusNode node, KeyEvent event) {
                     // 先尝试 TV 遥控器处理
-                    if (tvRemoteController?.handleKeyDown(event) ?? false) {
+                    if (tvRemoteController?.handleKeyEvent(event) ?? KeyEventResult.ignored) {
                       return KeyEventResult.handled;
                     }
                     // 否则使用原有的处理
