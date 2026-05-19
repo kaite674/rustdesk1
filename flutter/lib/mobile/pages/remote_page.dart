@@ -9,7 +9,6 @@ import 'package:flutter_hbb/mobile/widgets/floating_mouse.dart';
 import 'package:flutter_hbb/mobile/widgets/floating_mouse_widgets.dart';
 import 'package:flutter_hbb/mobile/widgets/gesture_help.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
-import 'package:flutter_hbb/models/tv_remote_controller.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
@@ -75,9 +74,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   final FocusNode _mobileFocusNode = FocusNode();
   final FocusNode _physicalFocusNode = FocusNode();
   var _showEdit = false; // use soft keyboard
-  
-  // TV 遥控器支持
-  TvRemoteController? _tvRemoteController;
 
   InputModel get inputModel => gFFI.inputModel;
   SessionID get sessionId => gFFI.sessionId;
@@ -125,9 +121,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
           isKeyboardVisible: keyboardVisibilityController.isVisible);
     });
     WidgetsBinding.instance.addObserver(this);
-    
-    // 初始化 TV 遥控器控制器
-    _tvRemoteController = TvRemoteController(ffi: gFFI);
   }
 
   @override
@@ -155,9 +148,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     // The inner logic of `on_voice_call_closed` will check if the voice call is active.
     // Only one client is considered here for now.
     gFFI.chatModel.onVoiceCallClosed("End connetion");
-    
-    // 清理 TV 遥控器控制器
-    _tvRemoteController?.dispose();
   }
 
   @override
@@ -459,10 +449,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
       // Disable RawKeyFocusScope before the connecting is established.
       // The "Delete" key on the soft keyboard may be grabbed when inputting the password dialog.
       child: gFFI.ffiModel.pi.isSet.isTrue
-          ? TvRemoteKeyFocusScope(
+          ? RawKeyFocusScope(
               focusNode: _physicalFocusNode,
               inputModel: inputModel,
-              tvRemoteController: _tvRemoteController,
               child: child)
           : child,
     );

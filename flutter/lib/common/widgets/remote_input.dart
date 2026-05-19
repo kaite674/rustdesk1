@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,11 +14,81 @@ import 'package:flutter_hbb/models/input_model.dart';
 
 import './gestures.dart';
 
+/// Simple TV Remote Controller
+/// Handles D-pad keys for mouse control on Android TV
+class TvRemoteMouseController {
+  final InputModel inputModel;
+  Timer? _repeatTimer;
+  static const double _baseStep = 50.0;
+  static const double _fastStep = 150.0;
+  bool _isFastMode = false;
+
+  TvRemoteMouseController(this.inputModel);
+
+  /// Handle direction keys for mouse movement
+  bool handleDirectionKey(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+
+    final key = event.logicalKey;
+    double step = _isFastMode ? _fastStep : _baseStep;
+
+    // Direction keys
+    if (key == LogicalKeyboardKey.arrowUp) {
+      inputModel.moveMouse(0, -step);
+      return true;
+    } else if (key == LogicalKeyboardKey.arrowDown) {
+      inputModel.moveMouse(0, step);
+      return true;
+    } else if (key == LogicalKeyboardKey.arrowLeft) {
+      inputModel.moveMouse(-step, 0);
+      return true;
+    } else if (key == LogicalKeyboardKey.arrowRight) {
+      inputModel.moveMouse(step, 0);
+      return true;
+    }
+
+    // Confirm key - left click
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.select) {
+      inputModel.tap(MouseButtons.left);
+      return true;
+    }
+
+    // Back key - right click
+    if (key == LogicalKeyboardKey.escape) {
+      inputModel.tap(MouseButtons.right);
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Check if TV remote is being used (any of our handled keys)
+  bool isTvRemoteKey(KeyEvent event) {
+    final key = event.logicalKey;
+    return [
+      LogicalKeyboardKey.arrowUp,
+      LogicalKeyboardKey.arrowDown,
+      LogicalKeyboardKey.arrowLeft,
+      LogicalKeyboardKey.arrowRight,
+      LogicalKeyboardKey.enter,
+      LogicalKeyboardKey.select,
+      LogicalKeyboardKey.escape,
+    ].contains(key);
+  }
+
+  void dispose() {
+    _repeatTimer?.cancel();
+  }
+}
+
 class RawKeyFocusScope extends StatelessWidget {
   final FocusNode? focusNode;
   final ValueChanged<bool>? onFocusChange;
   final InputModel inputModel;
   final Widget child;
+
+  // TV Remote controller for Android TV
+  late final TvRemoteMouseController _tvController = TvRemoteMouseController(inputModel);
 
   RawKeyFocusScope({
     this.focusNode,
@@ -40,65 +111,28 @@ class RawKeyFocusScope extends StatelessWidget {
             focusNode: focusNode,
             onFocusChange: onFocusChange,
             onKey: useRawKeyEvents
-                ? (FocusNode data, RawKeyEvent event) =>
-                    inputModel.handleRawKeyEvent(event)
-                : null,
-            onKeyEvent: useRawKeyEvents
-                ? null
-                : (FocusNode node, KeyEvent event) =>
-                    inputModel.handleKeyEvent(event),
-            child: child));
-  }
-}
-
-/// TV 遥控器支持的 Focus Scope
-/// 支持 Android TV 遥控器的方向键和确认键
-class TvRemoteKeyFocusScope extends StatelessWidget {
-  final FocusNode? focusNode;
-  final ValueChanged<bool>? onFocusChange;
-  final InputModel inputModel;
-  final dynamic tvRemoteController; // TvRemoteController
-  final Widget child;
-
-  TvRemoteKeyFocusScope({
-    this.focusNode,
-    this.onFocusChange,
-    required this.inputModel,
-    this.tvRemoteController,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // https://github.com/flutter/flutter/issues/154053
-    final useRawKeyEvents = isLinux && !isWeb;
-    // FIXME: On Windows, `AltGr` will generate `Alt` and `Control` key events,
-    // while `Alt` and `Control` are separated key events for en-US input method.
-    return FocusScope(
-        autofocus: true,
-        child: Focus(
-            autofocus: true,
-            canRequestFocus: true,
-            focusNode: focusNode,
-            onFocusChange: onFocusChange,
-            onKey: useRawKeyEvents
                 ? (FocusNode data, RawKeyEvent event) {
-                    // 先尝试 TV 遥控器处理
-                    if (tvRemoteController?.handleRawKeyEvent(event) ?? false) {
-                      return KeyEventResult.handled;
+                    // Try TV remote first
+                    if (event is RawKeyDownEvent || event is RawKeyRepeatEvent) {
+                      final keyEvent = KeyEvent.fromKeyEvent(event);
+                      if (_tvController.isTvRemoteKey(keyEvent)) {
+                        if (_tvController.handleDirectionKey(keyEvent)) {
+                          return KeyEventResult.handled;
+                        }
+                      }
                     }
-                    // 否则使用原有的处理
                     return inputModel.handleRawKeyEvent(event);
                   }
                 : null,
             onKeyEvent: useRawKeyEvents
                 ? null
                 : (FocusNode node, KeyEvent event) {
-                    // 先尝试 TV 遥控器处理
-                    if (tvRemoteController?.handleKeyEvent(event) ?? KeyEventResult.ignored) {
-                      return KeyEventResult.handled;
+                    // Try TV remote first
+                    if (_tvController.isTvRemoteKey(event)) {
+                      if (_tvController.handleDirectionKey(event)) {
+                        return KeyEventResult.handled;
+                      }
                     }
-                    // 否则使用原有的处理
                     return inputModel.handleKeyEvent(event);
                   },
             child: child));
