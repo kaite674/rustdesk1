@@ -32,20 +32,6 @@ class RawKeyFocusScope extends StatelessWidget {
     final useRawKeyEvents = isLinux && !isWeb;
     // FIXME: On Windows, `AltGr` will generate `Alt` and `Control` key events,
     // while `Alt` and `Control` are separated key events for en-US input method.
-    
-    // TV Remote: Escape key = right click (back button)
-    KeyEventResult handleTvRemoteKey(KeyEvent event) {
-      if (event is KeyDownEvent || event is KeyRepeatEvent) {
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          // Right click for back button
-          inputModel.tapDown(MouseButtons.right);
-          inputModel.tapUp(MouseButtons.right);
-          return KeyEventResult.handled;
-        }
-      }
-      return KeyEventResult.ignored;
-    }
-    
     return FocusScope(
         autofocus: true,
         child: Focus(
@@ -54,24 +40,13 @@ class RawKeyFocusScope extends StatelessWidget {
             focusNode: focusNode,
             onFocusChange: onFocusChange,
             onKey: useRawKeyEvents
-                ? (FocusNode data, RawKeyEvent event) {
-                    final keyEvent = KeyEvent.fromKeyEvent(event);
-                    final tvResult = handleTvRemoteKey(keyEvent);
-                    if (tvResult == KeyEventResult.handled) {
-                      return KeyEventResult.handled;
-                    }
-                    return inputModel.handleRawKeyEvent(event);
-                  }
+                ? (FocusNode data, RawKeyEvent event) =>
+                    inputModel.handleRawKeyEvent(event)
                 : null,
             onKeyEvent: useRawKeyEvents
                 ? null
-                : (FocusNode node, KeyEvent event) {
-                    final tvResult = handleTvRemoteKey(event);
-                    if (tvResult == KeyEventResult.handled) {
-                      return KeyEventResult.handled;
-                    }
-                    return inputModel.handleKeyEvent(event);
-                  },
+                : (FocusNode node, KeyEvent event) =>
+                    inputModel.handleKeyEvent(event),
             child: child));
   }
 }
