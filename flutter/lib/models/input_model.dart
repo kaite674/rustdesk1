@@ -817,6 +817,16 @@ class InputModel {
   }
 
   KeyEventResult handleKeyEvent(KeyEvent e) {
+    // TV Remote support: Escape key = right click (back button)
+    if (e is KeyDownEvent || e is KeyRepeatEvent) {
+      if (e.logicalKey == LogicalKeyboardKey.escape) {
+        // Send right click for TV remote back button
+        tapDown(MouseButtons.right);
+        tapUp(MouseButtons.right);
+        return KeyEventResult.handled;
+      }
+    }
+
     if (isViewOnly) return KeyEventResult.handled;
     if (isViewCamera) return KeyEventResult.handled;
     if (!isInputSourceFlutter) {
